@@ -71,6 +71,7 @@ def analyze_with_local_rules(normalized: dict, confidence_threshold: float) -> d
             "completion_tokens": None,
             "total_tokens": None,
             "estimated_cost_usd": None,
+            "estimated_cost_note": "unavailable: OpenRouter was not used",
         },
     }
 

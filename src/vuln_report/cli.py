@@ -91,6 +91,12 @@ def main(argv: list[str] | None = None) -> int:
             return 3
         _log("Analyzing findings with deterministic local rules")
         triage = analyze_with_local_rules(normalized, args.confidence_threshold)
+        triage["analysis_status"] = {
+            "mode": "local-rules",
+            "llm_requested": False,
+            "fallback_used": False,
+            "message": "OpenRouter was not requested; deterministic local rules were used.",
+        }
     else:
         try:
             _log(f"Analyzing findings with OpenRouter model: {args.model}")
@@ -102,6 +108,12 @@ def main(argv: list[str] | None = None) -> int:
                 chunk_size=args.llm_chunk_size,
             )
             analyzer = f"openrouter:{args.model}"
+            triage["analysis_status"] = {
+                "mode": "openrouter",
+                "llm_requested": True,
+                "fallback_used": False,
+                "message": f"OpenRouter analysis completed with model {args.model}.",
+            }
         except OpenRouterError as exc:
             if args.require_llm:
                 print(f"OpenRouter analysis failed: {exc}", file=sys.stderr)
@@ -109,6 +121,12 @@ def main(argv: list[str] | None = None) -> int:
             _log(f"OpenRouter analysis failed; falling back to deterministic local rules: {exc}")
             triage = analyze_with_local_rules(normalized, args.confidence_threshold)
             triage["warnings"].append(f"OpenRouter failed; used local fallback: {exc}")
+            triage["analysis_status"] = {
+                "mode": "local-rules-fallback",
+                "llm_requested": True,
+                "fallback_used": True,
+                "message": f"OpenRouter analysis failed; deterministic local rules were used instead. Reason: {exc}",
+            }
 
     triage["run"] = {
         "analyzer": analyzer,

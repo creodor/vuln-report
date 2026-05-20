@@ -26,6 +26,10 @@ class ReportTests(unittest.TestCase):
         }
         triage = {
             "summary": "Two findings.",
+            "analysis_status": {
+                "mode": "local-rules-fallback",
+                "message": "OpenRouter analysis failed; deterministic local rules were used instead.",
+            },
             "run": {"analyzer": "test"},
             "usage": {},
             "warnings": [],
@@ -56,6 +60,7 @@ class ReportTests(unittest.TestCase):
         report = render_markdown_report("Report", normalized, triage)
 
         self.assertIn("## Recommended remediation groups", report)
+        self.assertIn("Analysis mode: `local-rules-fallback", report)
         self.assertIn("Upgrade openssl to 1.1.1 or later.", report)
         self.assertIn("CVE-1", report)
         self.assertIn("CVE-2", report)

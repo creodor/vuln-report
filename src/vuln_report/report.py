@@ -30,6 +30,8 @@ def render_markdown_report(title: str, normalized: dict, triage: dict) -> str:
         "",
         triage.get("summary") or "No summary was provided.",
         "",
+        f"Analysis mode: `{_analysis_mode(triage)}`",
+        "",
         "## Metrics",
         "",
         f"- Total Trivy findings ingested: `{metrics['total_findings']}`",
@@ -235,6 +237,15 @@ def _format_estimated_cost(usage: dict) -> str:
     if note:
         return f"{cost:.6f} ({note})"
     return f"{cost:.6f}"
+
+
+def _analysis_mode(triage: dict) -> str:
+    status = triage.get("analysis_status") or {}
+    mode = status.get("mode") or triage.get("run", {}).get("analyzer") or "unknown"
+    message = status.get("message")
+    if message:
+        return f"{mode} - {message}"
+    return mode
 
 
 def _escape(value: str) -> str:
