@@ -16,7 +16,7 @@ from vuln_report.trivy import run_trivy_image_scan
 
 
 DEFAULT_MODEL = "z-ai/glm-4.5-air:free"
-DEFAULT_MAX_FINDINGS = 75
+DEFAULT_INCLUDED_SEVERITIES = "CRITICAL,HIGH"
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -30,7 +30,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     parser.add_argument("--output-dir", type=Path, default=Path("reports"))
     parser.add_argument("--model", default=os.getenv("OPENROUTER_MODEL", DEFAULT_MODEL))
-    parser.add_argument("--max-findings", type=int, default=DEFAULT_MAX_FINDINGS)
+    parser.add_argument(
+        "--include-severities",
+        default=DEFAULT_INCLUDED_SEVERITIES,
+        help="Comma-separated severities to analyze. Defaults to CRITICAL,HIGH.",
+    )
     parser.add_argument("--confidence-threshold", type=float, default=0.70)
     parser.add_argument("--require-llm", action="store_true", help="Fail instead of using local fallback.")
     parser.add_argument("--offline", action="store_true", help="Skip LLM calls and use deterministic local rules.")
@@ -62,7 +66,11 @@ def main(argv: list[str] | None = None) -> int:
 
     _log("Normalizing Trivy findings")
     raw_report = _read_json(raw_path)
-    normalized = normalize_trivy_report(raw_report, max_findings=args.max_findings)
+    try:
+        normalized = normalize_trivy_report(raw_report, included_severities=_parse_severities(args.include_severities))
+    except ValueError as exc:
+        print(f"Invalid severity filter: {exc}", file=sys.stderr)
+        return 2
     normalized["scan_source"] = scan_source
     normalized["generated_at"] = _utc_timestamp()
     _write_json(normalized_path, normalized)
@@ -143,6 +151,10 @@ def _copy_unless_same_file(source: Path, destination: Path) -> None:
 
 def _log(message: str) -> None:
     print(f"[vuln-report] {message}", flush=True)
+
+
+def _parse_severities(value: str) -> tuple[str, ...]:
+    return tuple(part.strip().upper() for part in value.split(",") if part.strip())
 
 
 def _utc_timestamp() -> str:

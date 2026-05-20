@@ -9,7 +9,14 @@ SEVERITY_RANK = {
 }
 
 
-def normalize_trivy_report(report: dict, max_findings: int = 75) -> dict:
+DEFAULT_INCLUDED_SEVERITIES = ("CRITICAL", "HIGH")
+
+
+def normalize_trivy_report(
+    report: dict,
+    included_severities: tuple[str, ...] | list[str] | None = None,
+) -> dict:
+    included = _normalize_severities(included_severities or DEFAULT_INCLUDED_SEVERITIES)
     findings = []
     severity_counts = {severity: 0 for severity in SEVERITY_RANK}
     fix_available = 0
@@ -50,7 +57,7 @@ def normalize_trivy_report(report: dict, max_findings: int = 75) -> dict:
         ),
         reverse=True,
     )
-    selected = findings[:max_findings]
+    selected = [finding for finding in findings if finding["severity"] in included]
 
     return {
         "scanner": {
@@ -62,7 +69,8 @@ def normalize_trivy_report(report: dict, max_findings: int = 75) -> dict:
         "metrics": {
             "total_findings": len(findings),
             "findings_sent_to_analyzer": len(selected),
-            "findings_omitted_by_limit": max(len(findings) - len(selected), 0),
+            "findings_omitted_by_severity": max(len(findings) - len(selected), 0),
+            "included_severities": list(included),
             "severity_counts": severity_counts,
             "fix_available_count": fix_available,
             "fix_unavailable_count": max(len(findings) - fix_available, 0),
@@ -75,3 +83,13 @@ def _trim(value: str, limit: int) -> str:
     if len(value) <= limit:
         return value
     return value[: limit - 3].rstrip() + "..."
+
+
+def _normalize_severities(severities: tuple[str, ...] | list[str]) -> tuple[str, ...]:
+    normalized = tuple(dict.fromkeys(severity.strip().upper() for severity in severities if severity.strip()))
+    if not normalized:
+        raise ValueError("At least one severity must be included.")
+    unknown = [severity for severity in normalized if severity not in SEVERITY_RANK]
+    if unknown:
+        raise ValueError(f"Unknown severity value(s): {', '.join(unknown)}")
+    return normalized

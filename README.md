@@ -103,8 +103,8 @@ raw findings, prompts, model output, or secrets.
 - `--output-dir`: directory for `trivy-raw.json`, `normalized-findings.json`,
   `triage.json`, and `vulnerability-report.md`.
 - `--model`: OpenRouter model name. Defaults to `z-ai/glm-4.5-air:free`.
-- `--max-findings`: maximum number of findings sent to the analyzer. Defaults
-  to `75`.
+- `--include-severities`: comma-separated severities sent to the analyzer.
+  Defaults to `CRITICAL,HIGH`.
 - `--confidence-threshold`: confidence value below which human review is
   required. Defaults to `0.70`.
 - `--offline`: skip OpenRouter and use deterministic local rules.
@@ -136,11 +136,12 @@ the supplied Trivy data. In LLM mode this value is supplied by the model and the
 checked by deterministic guardrails. In offline fallback mode it is rule-derived
 and labeled in the confidence rationale.
 
-The script decides which findings are analyzed. It sorts Trivy findings by
-severity, fix availability, and CVE id, then sends up to `--max-findings` to the
-analyzer. The final triage JSON and Markdown report include exactly one entry for
-each finding sent to the analyzer. If the model omits a finding, the script adds
-a low-confidence human-review fallback entry instead of silently dropping it.
+The script decides which findings are analyzed. It filters Trivy findings by
+severity, defaulting to `CRITICAL,HIGH`, then sorts those findings by severity,
+fix availability, and CVE id. The final triage JSON and Markdown report include
+exactly one entry for each finding sent to the analyzer. If the model omits a
+finding, the script adds a low-confidence human-review fallback entry instead of
+silently dropping it.
 
 The Markdown report also groups findings that share the same package/fixed
 version or remediation action. This keeps the human-facing report focused on

@@ -9,7 +9,7 @@ from vuln_report.triage import analyze_with_local_rules
 class LocalTriageTests(unittest.TestCase):
     def test_local_rules_require_review_for_critical_and_missing_fix(self):
         report = json.loads(Path("fixtures/trivy-example.json").read_text(encoding="utf-8"))
-        normalized = normalize_trivy_report(report, max_findings=10)
+        normalized = normalize_trivy_report(report, included_severities=("CRITICAL", "HIGH"))
 
         triage = analyze_with_local_rules(normalized, confidence_threshold=0.70)
 

@@ -11,7 +11,8 @@ class ReportTests(unittest.TestCase):
             "metrics": {
                 "total_findings": 2,
                 "findings_sent_to_analyzer": 2,
-                "findings_omitted_by_limit": 0,
+                "findings_omitted_by_severity": 0,
+                "included_severities": ["CRITICAL", "HIGH"],
                 "fix_available_count": 2,
                 "fix_unavailable_count": 0,
                 "severity_counts": {
@@ -62,4 +63,3 @@ class ReportTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
