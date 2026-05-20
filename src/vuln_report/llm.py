@@ -12,7 +12,10 @@ class OpenRouterError(RuntimeError):
 SYSTEM_PROMPT = """You are a security engineer performing vulnerability triage from normalized Trivy findings.
 Return strict JSON only. Do not include Markdown, comments, or extra prose.
 Be conservative: if context is missing, say what must be verified by a human.
-Never claim exploitability is proven unless the finding data directly supports it."""
+Never claim exploitability is proven unless the finding data directly supports it.
+Confidence means confidence in your generated triage recommendation for a finding,
+including the risk summary, exploitability notes, and recommended action, based only
+on the supplied normalized Trivy data."""
 
 
 def analyze_with_openrouter(
@@ -65,6 +68,9 @@ def analyze_with_openrouter(
     triage.setdefault("warnings", [])
     triage.setdefault("findings", [])
     triage.setdefault("summary", "")
+    triage["findings"] = _merge_model_findings(normalized, triage["findings"])
+    if any(finding.get("human_review_reason") == "Model omitted this finding from its structured response." for finding in triage["findings"]):
+        triage["warnings"].append("One or more findings were omitted by the model and replaced with low-confidence human-review fallback entries.")
     triage["usage"] = _usage(response_payload)
     _apply_required_guardrails(triage, confidence_threshold)
     return triage
@@ -77,6 +83,8 @@ def _user_prompt(normalized: dict, confidence_threshold: float) -> str:
             {
                 "id": "CVE identifier",
                 "package": "Package name",
+                "installed_version": "Installed package version from the input finding.",
+                "fixed_version": "Fixed package version from the input finding, or empty string.",
                 "severity": "CRITICAL|HIGH|MEDIUM|LOW|UNKNOWN",
                 "risk_summary": "Plain-English risk summary.",
                 "exploitability_notes": "What is known and what needs validation.",
@@ -85,7 +93,7 @@ def _user_prompt(normalized: dict, confidence_threshold: float) -> str:
                 "human_review_reason": "Reason if review is required.",
                 "confidence": 0.0,
                 "confidence_label": "low|borderline|medium|high",
-                "confidence_rationale": "Why this confidence is appropriate.",
+                "confidence_rationale": "Why this confidence in the generated triage recommendation is appropriate.",
             }
         ],
         "warnings": ["Any limitations or notable assumptions."],
@@ -95,6 +103,10 @@ def _user_prompt(normalized: dict, confidence_threshold: float) -> str:
         f"Confidence threshold for human review is {confidence_threshold}.\n"
         "Require human review for any critical severity finding, missing fixed version, "
         "likely RCE/auth bypass/privilege escalation/supply-chain issue, or confidence below threshold.\n"
+        "Return exactly one findings entry for every finding in normalized.findings. "
+        "Do not summarize, group, omit, or deduplicate findings.\n"
+        "Confidence must mean confidence in your generated triage recommendation for that finding, "
+        "including the risk summary, exploitability notes, and recommended action, based only on the supplied data.\n"
         "Use this exact JSON shape:\n"
         f"{json.dumps(contract, indent=2)}\n\n"
         "Normalized Trivy data:\n"
@@ -146,6 +158,80 @@ def _usage(response_payload: dict) -> dict:
         "completion_tokens": usage.get("completion_tokens"),
         "total_tokens": usage.get("total_tokens"),
         "estimated_cost_usd": None,
+    }
+
+
+def _merge_model_findings(normalized: dict, model_findings: list[dict]) -> list[dict]:
+    by_exact_key = {}
+    by_loose_key = {}
+    for finding in model_findings:
+        if not isinstance(finding, dict):
+            continue
+        exact_key = _exact_finding_key(finding)
+        loose_key = _loose_finding_key(finding)
+        if exact_key and exact_key not in by_exact_key:
+            by_exact_key[exact_key] = finding
+        if loose_key and loose_key not in by_loose_key:
+            by_loose_key[loose_key] = finding
+
+    merged = []
+    for source in normalized.get("findings", []):
+        model_finding = by_exact_key.get(_exact_finding_key(source))
+        if not model_finding:
+            model_finding = by_loose_key.get(_loose_finding_key(source))
+        if model_finding:
+            merged.append(_with_source_defaults(source, model_finding))
+        else:
+            merged.append(_omitted_model_finding(source))
+
+    return merged
+
+
+def _exact_finding_key(finding: dict) -> tuple[str, str, str] | None:
+    cve_id = finding.get("id")
+    package = finding.get("package")
+    installed_version = finding.get("installed_version") or ""
+    if not cve_id or not package:
+        return None
+    return (str(cve_id), str(package), str(installed_version))
+
+
+def _loose_finding_key(finding: dict) -> tuple[str, str] | None:
+    cve_id = finding.get("id")
+    package = finding.get("package")
+    if not cve_id or not package:
+        return None
+    return (str(cve_id), str(package))
+
+
+def _with_source_defaults(source: dict, finding: dict) -> dict:
+    merged = dict(finding)
+    for key in ("id", "package", "severity", "installed_version", "fixed_version", "primary_url"):
+        if not merged.get(key):
+            merged[key] = source.get(key)
+    return merged
+
+
+def _omitted_model_finding(source: dict) -> dict:
+    fixed_version = source.get("fixed_version")
+    if fixed_version:
+        action = f"Upgrade {source.get('package')} from {source.get('installed_version')} to {fixed_version} or later."
+    else:
+        action = f"No fixed version was reported for {source.get('package')}; route to human review."
+    return {
+        "id": source.get("id"),
+        "package": source.get("package"),
+        "severity": source.get("severity"),
+        "installed_version": source.get("installed_version"),
+        "fixed_version": fixed_version,
+        "risk_summary": f"{source.get('severity')} vulnerability in {source.get('package')} ({source.get('title') or source.get('id')}).",
+        "exploitability_notes": "The model did not return analysis for this finding; validate exposure and reachable code paths manually.",
+        "recommended_action": action,
+        "human_review_required": True,
+        "human_review_reason": "Model omitted this finding from its structured response.",
+        "confidence": 0.0,
+        "confidence_label": "low",
+        "confidence_rationale": "No model-generated triage recommendation was returned for this finding.",
     }
 
 

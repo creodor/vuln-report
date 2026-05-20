@@ -130,6 +130,18 @@ docker run --rm --entrypoint python vuln-report -m unittest discover -s tests
 If `OPENROUTER_API_KEY` is not present, the tool uses deterministic local rules
 and clearly marks that in the output.
 
+`confidence` means confidence in the generated triage recommendation for a
+finding: the risk summary, exploitability notes, and recommended action based on
+the supplied Trivy data. In LLM mode this value is supplied by the model and then
+checked by deterministic guardrails. In offline fallback mode it is rule-derived
+and labeled in the confidence rationale.
+
+The script decides which findings are analyzed. It sorts Trivy findings by
+severity, fix availability, and CVE id, then sends up to `--max-findings` to the
+analyzer. The final triage JSON and Markdown report include exactly one entry for
+each finding sent to the analyzer. If the model omits a finding, the script adds
+a low-confidence human-review fallback entry instead of silently dropping it.
+
 ## Why this problem
 
 Vulnerability scanners are easy to run and hard to operationalize. A solo

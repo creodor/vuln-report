@@ -58,7 +58,7 @@ def analyze_with_local_rules(normalized: dict, confidence_threshold: float) -> d
                 "human_review_reason": _review_reason(finding, keyword_review),
                 "confidence": confidence,
                 "confidence_label": confidence_label,
-                "confidence_rationale": "Local rules can rank and route the finding, but they do not perform contextual exploitability analysis.",
+                "confidence_rationale": "Rule-derived confidence in the generated triage recommendation. Local rules can rank and route the finding, but they do not perform contextual exploitability analysis.",
             }
         )
 
@@ -106,4 +106,3 @@ def _review_reason(finding: dict, keyword_review: bool) -> str:
 def _summary(findings: list[dict]) -> str:
     review_count = sum(1 for finding in findings if finding["human_review_required"])
     return f"Analyzed {len(findings)} findings; {review_count} require human review."
-

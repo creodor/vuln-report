@@ -38,7 +38,7 @@ def render_markdown_report(title: str, normalized: dict, triage: dict) -> str:
         f"- Findings requiring human review: `{len(review_findings)}`",
         f"- Findings with a reported fix: `{metrics['fix_available_count']}`",
         f"- Findings without a reported fix: `{metrics['fix_unavailable_count']}`",
-        f"- Average confidence: `{average_confidence}`",
+        f"- Average recommendation confidence: `{average_confidence}`",
         f"- LLM/runtime seconds: `{triage.get('run', {}).get('llm_runtime_seconds')}`",
         f"- Total runtime seconds: `{triage.get('run', {}).get('total_runtime_seconds')}`",
         "",
@@ -67,7 +67,7 @@ def render_markdown_report(title: str, normalized: dict, triage: dict) -> str:
     )
 
     if review_findings:
-        lines.extend(["| CVE | Package | Severity | Reason | Confidence |", "| --- | --- | --- | --- | ---: |"])
+        lines.extend(["| CVE | Package | Severity | Reason | Recommendation confidence |", "| --- | --- | --- | --- | ---: |"])
         for finding in review_findings:
             lines.append(
                 "| {id} | {package} | {severity} | {reason} | {confidence} |".format(
@@ -96,7 +96,7 @@ def render_markdown_report(title: str, normalized: dict, triage: dict) -> str:
                     f"### {index}. {finding.get('id')} in `{finding.get('package')}`",
                     "",
                     f"- Severity: `{finding.get('severity')}`",
-                    f"- Confidence: `{finding.get('confidence')}` ({finding.get('confidence_label')})",
+                    f"- Recommendation confidence: `{finding.get('confidence')}` ({finding.get('confidence_label')})",
                     f"- Human review required: `{finding.get('human_review_required')}`",
                     f"- Risk summary: {finding.get('risk_summary')}",
                     f"- Exploitability notes: {finding.get('exploitability_notes')}",
@@ -145,4 +145,3 @@ def _link_cve(cve_id: str | None) -> str:
 
 def _escape(value: str) -> str:
     return value.replace("|", "\\|")
-
