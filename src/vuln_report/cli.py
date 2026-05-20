@@ -15,7 +15,7 @@ from vuln_report.triage import analyze_with_local_rules
 from vuln_report.trivy import run_trivy_image_scan
 
 
-DEFAULT_MODEL = "openai/gpt-4.1-mini"
+DEFAULT_MODEL = "openrouter/free"
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -121,4 +121,3 @@ def _write_json(path: Path, payload: dict) -> None:
 
 def _utc_timestamp() -> str:
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-

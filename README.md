@@ -40,7 +40,7 @@ Use OpenRouter for LLM-assisted triage:
 
 ```powershell
 $env:OPENROUTER_API_KEY="..."
-vuln-report --input fixtures/trivy-example.json --model openai/gpt-4.1-mini
+vuln-report --input fixtures/trivy-example.json --model openrouter/free
 ```
 
 ## GitHub Actions
@@ -51,6 +51,7 @@ The workflow in `.github/workflows/vulnerability-report.yml` supports:
 - Push runs against a default demo image
 - Artifact upload for all generated reports
 - Optional OpenRouter use through the `OPENROUTER_API_KEY` repository secret
+- Default model set to `openrouter/free` for zero-cost demo runs
 
 The scheduled trigger is included as a commented example but is disabled for
 demo cost control.
