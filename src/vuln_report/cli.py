@@ -54,7 +54,7 @@ def main(argv: list[str] | None = None) -> int:
         if not args.input.exists():
             print(f"Input report not found: {args.input}", file=sys.stderr)
             return 2
-        shutil.copyfile(args.input, raw_path)
+        _copy_unless_same_file(args.input, raw_path)
         scan_source = str(args.input)
 
     raw_report = _read_json(raw_path)
@@ -117,6 +117,15 @@ def _read_json(path: Path) -> dict:
 
 def _write_json(path: Path, payload: dict) -> None:
     path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+
+
+def _copy_unless_same_file(source: Path, destination: Path) -> None:
+    try:
+        if source.resolve() == destination.resolve():
+            return
+    except FileNotFoundError:
+        pass
+    shutil.copyfile(source, destination)
 
 
 def _utc_timestamp() -> str:
