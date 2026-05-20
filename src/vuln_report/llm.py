@@ -395,6 +395,11 @@ def _format_transport_error(exc: Exception) -> str:
 def _format_openrouter_http_error(status_code: int, body: str) -> str:
     message = _extract_error_text(_safe_json(body)) or body
     message = _sanitize_error_text(message)
+    if status_code in {401, 403}:
+        return (
+            f"OpenRouter HTTP {status_code}: authentication failed or the key is not authorized "
+            f"for OpenRouter ({message})"
+        )
     if status_code in {402, 429}:
         return f"OpenRouter HTTP {status_code}: model is likely quota-limited or throttled ({message})"
     if status_code in {400, 404}:
