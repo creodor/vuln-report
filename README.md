@@ -11,7 +11,7 @@ scanner output and a remediation decision, not to replace security judgment.
 
 Input:
 
-- A container image, scanned through Trivy's Docker image, or
+- A container image, scanned by Trivy, or
 - An existing Trivy JSON report
 
 Output:
@@ -86,6 +86,24 @@ The workflow in `.github/workflows/vulnerability-report.yml` supports:
 
 The scheduled trigger is included as a commented example but is disabled for
 demo cost control.
+
+In CI, Trivy scanning and report generation are deliberately separate steps:
+the official Trivy Action produces `reports/trivy-raw.json`, then the
+containerized reporter converts that raw scanner output into normalized JSON,
+triage JSON, and Markdown.
+
+## CLI options
+
+- `--input`: analyze an existing Trivy JSON report.
+- `--image`: scan a container image with Trivy, then analyze the result.
+- `--output-dir`: directory for `trivy-raw.json`, `normalized-findings.json`,
+  `triage.json`, and `vulnerability-report.md`.
+- `--model`: OpenRouter model name. Defaults to `openrouter/free`.
+- `--max-findings`: maximum number of findings sent to the analyzer.
+- `--confidence-threshold`: confidence value below which human review is
+  required. Defaults to `0.70`.
+- `--offline`: skip OpenRouter and use deterministic local rules.
+- `--require-llm`: fail if OpenRouter is unavailable or returns unusable output.
 
 ## Tests
 

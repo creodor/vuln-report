@@ -25,7 +25,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument("--input", type=Path, help="Path to an existing Trivy JSON report.")
-    source.add_argument("--image", help="Container image to scan with Trivy via Docker.")
+    source.add_argument("--image", help="Container image to scan with Trivy.")
 
     parser.add_argument("--output-dir", type=Path, default=Path("reports"))
     parser.add_argument("--model", default=os.getenv("OPENROUTER_MODEL", DEFAULT_MODEL))

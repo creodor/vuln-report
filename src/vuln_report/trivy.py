@@ -4,6 +4,8 @@ import subprocess
 import shutil
 from pathlib import Path
 
+TRIVY_IMAGE = "aquasec/trivy:0.70.0"
+
 
 def run_trivy_image_scan(image: str, output_path: Path) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -29,7 +31,7 @@ def run_trivy_image_scan(image: str, output_path: Path) -> None:
         "--rm",
         "-v",
         f"{output_path.parent.resolve()}:/out",
-        "aquasec/trivy:latest",
+        TRIVY_IMAGE,
         "image",
         "--quiet",
         "--format",
