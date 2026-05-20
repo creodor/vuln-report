@@ -1,0 +1,17 @@
+[project]
+name = "vuln-report"
+version = "0.1.0"
+description = "AI-assisted Trivy vulnerability triage report generator."
+requires-python = ">=3.10"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "creodor" }]
+dependencies = []
+
+[project.scripts]
+vuln-report = "vuln_report.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
