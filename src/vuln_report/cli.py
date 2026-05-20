@@ -96,7 +96,7 @@ def main(argv: list[str] | None = None) -> int:
             if args.require_llm:
                 print(f"OpenRouter analysis failed: {exc}", file=sys.stderr)
                 return 4
-            _log("OpenRouter analysis failed; falling back to deterministic local rules")
+            _log(f"OpenRouter analysis failed; falling back to deterministic local rules: {exc}")
             triage = analyze_with_local_rules(normalized, args.confidence_threshold)
             triage["warnings"].append(f"OpenRouter failed; used local fallback: {exc}")
 

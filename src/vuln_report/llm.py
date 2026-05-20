@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import urllib.error
 import urllib.request
 
@@ -49,7 +50,7 @@ def analyze_with_openrouter(
             response_payload = json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
         body = exc.read().decode("utf-8", errors="replace")
-        raise OpenRouterError(f"HTTP {exc.code}: {body}") from exc
+        raise OpenRouterError(_format_openrouter_http_error(exc.code, body)) from exc
     except (urllib.error.URLError, TimeoutError) as exc:
         raise OpenRouterError(str(exc)) from exc
 
@@ -131,6 +132,12 @@ def _extract_message_content(message: dict, choice: dict) -> str:
 
     finish_reason = choice.get("finish_reason")
     message_keys = ", ".join(sorted(message.keys())) or "none"
+    error_text = _extract_error_text(message) or _extract_error_text(choice)
+    if error_text:
+        raise OpenRouterError(
+            "Model response did not include text content; "
+            f"provider reported: {_sanitize_error_text(error_text)}"
+        )
     raise OpenRouterError(
         "Model response did not include text content "
         f"(finish_reason={finish_reason}, message_keys={message_keys})."
@@ -159,6 +166,47 @@ def _usage(response_payload: dict) -> dict:
         "total_tokens": usage.get("total_tokens"),
         "estimated_cost_usd": None,
     }
+
+
+def _format_openrouter_http_error(status_code: int, body: str) -> str:
+    message = _extract_error_text(_safe_json(body)) or body
+    message = _sanitize_error_text(message)
+    if status_code in {402, 429}:
+        return f"OpenRouter HTTP {status_code}: model is likely quota-limited or throttled ({message})"
+    if status_code in {400, 404}:
+        return f"OpenRouter HTTP {status_code}: model or request was rejected ({message})"
+    return f"OpenRouter HTTP {status_code}: {message}"
+
+
+def _safe_json(value: str) -> dict | str:
+    try:
+        return json.loads(value)
+    except json.JSONDecodeError:
+        return value
+
+
+def _extract_error_text(value) -> str:
+    if isinstance(value, dict):
+        for key in ("error", "message", "detail"):
+            candidate = value.get(key)
+            if isinstance(candidate, str):
+                return candidate
+            if isinstance(candidate, dict):
+                nested = _extract_error_text(candidate)
+                if nested:
+                    return nested
+        return ""
+    if isinstance(value, str):
+        return value
+    return ""
+
+
+def _sanitize_error_text(value: str, limit: int = 240) -> str:
+    value = re.sub(r"sk-or-v1-[A-Za-z0-9_-]+", "[redacted-openrouter-key]", value)
+    value = " ".join(value.split())
+    if len(value) > limit:
+        return value[: limit - 3].rstrip() + "..."
+    return value
 
 
 def _merge_model_findings(normalized: dict, model_findings: list[dict]) -> list[dict]:

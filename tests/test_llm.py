@@ -1,6 +1,11 @@
 import unittest
 
-from vuln_report.llm import OpenRouterError, _extract_message_content, _strip_code_fences
+from vuln_report.llm import (
+    OpenRouterError,
+    _extract_message_content,
+    _format_openrouter_http_error,
+    _strip_code_fences,
+)
 
 
 class LlmParsingTests(unittest.TestCase):
@@ -21,7 +26,21 @@ class LlmParsingTests(unittest.TestCase):
             '{"summary": "ok"}',
         )
 
+    def test_extract_message_content_surfaces_provider_error(self):
+        with self.assertRaisesRegex(OpenRouterError, "throttled"):
+            _extract_message_content(
+                {"content": None, "error": {"message": "model is throttled"}},
+                {"finish_reason": "stop"},
+            )
+
+    def test_http_error_formatter_identifies_rate_limit(self):
+        message = _format_openrouter_http_error(
+            429,
+            '{"error": {"message": "free model rate limit exceeded"}}',
+        )
+
+        self.assertIn("quota-limited or throttled", message)
+
 
 if __name__ == "__main__":
     unittest.main()
-
