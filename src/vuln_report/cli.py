@@ -48,20 +48,28 @@ def main(argv: list[str] | None = None) -> int:
     report_path = args.output_dir / "vulnerability-report.md"
 
     if args.image:
+        _log(f"Scanning image with Trivy: {args.image}")
         run_trivy_image_scan(args.image, raw_path)
         scan_source = args.image
     else:
         if not args.input.exists():
             print(f"Input report not found: {args.input}", file=sys.stderr)
             return 2
+        _log(f"Using existing Trivy report: {args.input}")
         _copy_unless_same_file(args.input, raw_path)
         scan_source = str(args.input)
 
+    _log("Normalizing Trivy findings")
     raw_report = _read_json(raw_path)
     normalized = normalize_trivy_report(raw_report, max_findings=args.max_findings)
     normalized["scan_source"] = scan_source
     normalized["generated_at"] = _utc_timestamp()
     _write_json(normalized_path, normalized)
+    _log(
+        "Prepared "
+        f"{normalized['metrics']['findings_sent_to_analyzer']} of "
+        f"{normalized['metrics']['total_findings']} findings for analysis"
+    )
 
     api_key = os.getenv("OPENROUTER_API_KEY")
     analyzer_started = time.time()
@@ -71,9 +79,11 @@ def main(argv: list[str] | None = None) -> int:
         if args.require_llm:
             print("OPENROUTER_API_KEY is required when --require-llm is set.", file=sys.stderr)
             return 3
+        _log("Analyzing findings with deterministic local rules")
         triage = analyze_with_local_rules(normalized, args.confidence_threshold)
     else:
         try:
+            _log(f"Analyzing findings with OpenRouter model: {args.model}")
             triage = analyze_with_openrouter(
                 normalized,
                 api_key=api_key,
@@ -85,6 +95,7 @@ def main(argv: list[str] | None = None) -> int:
             if args.require_llm:
                 print(f"OpenRouter analysis failed: {exc}", file=sys.stderr)
                 return 4
+            _log("OpenRouter analysis failed; falling back to deterministic local rules")
             triage = analyze_with_local_rules(normalized, args.confidence_threshold)
             triage["warnings"].append(f"OpenRouter failed; used local fallback: {exc}")
 
@@ -97,6 +108,7 @@ def main(argv: list[str] | None = None) -> int:
     }
     _write_json(triage_path, triage)
 
+    _log("Rendering Markdown report")
     markdown = render_markdown_report(
         title=args.report_title,
         normalized=normalized,
@@ -126,6 +138,10 @@ def _copy_unless_same_file(source: Path, destination: Path) -> None:
     except FileNotFoundError:
         pass
     shutil.copyfile(source, destination)
+
+
+def _log(message: str) -> None:
+    print(f"[vuln-report] {message}", flush=True)
 
 
 def _utc_timestamp() -> str:

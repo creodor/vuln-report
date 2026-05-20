@@ -25,7 +25,7 @@ Output:
 
 Build the reporter image:
 
-```powershell
+```bash
 docker build -t vuln-report .
 ```
 
@@ -46,29 +46,29 @@ Why this approach:
 
 Run against the included sample fixture:
 
-```powershell
-docker run --rm `
-  -v ${PWD}/fixtures:/input `
-  -v ${PWD}/reports:/reports `
+```bash
+docker run --rm \
+  -v "$(pwd)/fixtures:/input" \
+  -v "$(pwd)/reports:/reports" \
   vuln-report --input /input/trivy-example.json --output-dir /reports --offline
 ```
 
 Run against a container image:
 
-```powershell
-docker run --rm `
-  -v ${PWD}/reports:/reports `
+```bash
+docker run --rm \
+  -v "$(pwd)/reports:/reports" \
   vuln-report --image python:3.9.0-slim-buster --output-dir /reports --offline
 ```
 
 Use OpenRouter for LLM-assisted triage:
 
-```powershell
-$env:OPENROUTER_API_KEY="..."
-docker run --rm `
-  -e OPENROUTER_API_KEY=$env:OPENROUTER_API_KEY `
-  -v ${PWD}/fixtures:/input `
-  -v ${PWD}/reports:/reports `
+```bash
+export OPENROUTER_API_KEY="..."
+docker run --rm \
+  -e OPENROUTER_API_KEY="$OPENROUTER_API_KEY" \
+  -v "$(pwd)/fixtures:/input" \
+  -v "$(pwd)/reports:/reports" \
   vuln-report --input /input/trivy-example.json --output-dir /reports --model openrouter/free
 ```
 
@@ -92,6 +92,10 @@ the official Trivy Action produces `reports/trivy-raw.json`, then the
 containerized reporter converts that raw scanner output into normalized JSON,
 triage JSON, and Markdown.
 
+The report generation step prints phase-level progress only: input source,
+normalization counts, analyzer selection, and artifact paths. It avoids logging
+raw findings, prompts, model output, or secrets.
+
 ## CLI options
 
 - `--input`: analyze an existing Trivy JSON report.
@@ -109,7 +113,7 @@ triage JSON, and Markdown.
 
 The tests run inside the Docker image:
 
-```powershell
+```bash
 docker run --rm --entrypoint python vuln-report -m unittest discover -s tests
 ```
 
