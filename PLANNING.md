@@ -23,14 +23,19 @@
   - The LLM accelerates triage but should not silently become the authority for closure.
 - Avoid auto-remediation.
   - Remediation requires owner context, compatibility testing, and release judgment that are outside this assignment scope.
+- Split large LLM analysis into chunks.
+  - Large structured responses caused omissions even with stronger models, so the tool now keeps per-finding coverage while limiting each OpenRouter call to a smaller batch.
+- Keep analysis mode visible in the report.
+  - If OpenRouter fails and local rules are used, the report records that fallback near the executive summary so a reviewer can immediately tell what kind of analysis they are reading.
+- Estimate cost from OpenRouter model pricing.
+  - The tool uses OpenRouter's models endpoint when token usage is returned and clearly reports when pricing is unavailable.
 
 ## Follow-up improvements
 
 - Add Jira routing based on package owner metadata.
 - Add Slack summaries with links to artifacts.
-- Group related CVEs by package and fixed version.
-- Add cost calculation by model once the model pricing table is configured.
 - Add multi-model or retry analysis only for high-risk findings.
 - Enrich findings with EPSS, KEV, or vendor advisories.
 - Track SLA windows and generate overdue remediation reports.
-
+- Pin Trivy source image by digest or verify a downloaded Trivy release artifact
+  with signature/checksum validation.

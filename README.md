@@ -82,11 +82,30 @@ The workflow in `.github/workflows/vulnerability-report.yml` supports:
 
 - Manual runs with a target image input
 - Push runs against a default demo image
+- Pull request runs targeting `main`
 - Docker image build from this repo's `Dockerfile`
 - Tests run inside the built container
 - Artifact upload for all generated reports
 - Optional OpenRouter use through the `OPENROUTER_API_KEY` repository secret
 - Default model set to `z-ai/glm-4.5-air:free` for zero-cost demo runs
+
+To enable LLM-assisted reports in GitHub Actions, create a repository secret:
+
+- Name: `OPENROUTER_API_KEY`
+- Value: an OpenRouter API key
+
+Optional repository variable:
+
+- `TRIVY_VERSION`: overrides the Trivy version used when building the reporter
+  image. The workflow defaults to `0.70.0` if this variable is not set.
+
+Manual workflow inputs:
+
+- `image`: container image to scan. Defaults to `python:3.9.0-slim-buster`.
+- `model`: OpenRouter model. Defaults to `z-ai/glm-4.5-air:free`.
+- `include_severities`: comma-separated severities sent to analysis. Defaults
+  to `CRITICAL,HIGH`.
+- `llm_chunk_size`: maximum findings per OpenRouter call. Defaults to `25`.
 
 The scheduled trigger is included as a commented example but is disabled for
 demo cost control.
@@ -156,6 +175,11 @@ and `triage.json`.
 When more findings are selected than `--llm-chunk-size`, the tool splits
 OpenRouter analysis into multiple calls. This reduces the chance that a model
 truncates or omits findings in a very large structured response.
+
+OpenRouter token usage is recorded when the provider returns it. Estimated cost
+is calculated from OpenRouter's `/models` pricing endpoint and cached for the
+duration of the run. If pricing cannot be retrieved, the report shows an explicit
+unavailable reason instead of implying that the run was free.
 
 ## Why this problem
 
