@@ -23,6 +23,7 @@ def render_markdown_report(title: str, normalized: dict, triage: dict) -> str:
         f"# {title}",
         "",
         f"Generated: `{normalized.get('generated_at')}`",
+        f"Run id: `{normalized.get('run_id')}`",
         f"Scan source: `{normalized.get('scan_source')}`",
         f"Analyzer: `{triage.get('run', {}).get('analyzer')}`",
         "",
@@ -52,6 +53,8 @@ def render_markdown_report(title: str, normalized: dict, triage: dict) -> str:
     ]
     for severity, count in metrics["severity_counts"].items():
         lines.append(f"| {severity} | {count} |")
+
+    lines.extend(_render_artifacts(normalized, triage))
 
     usage = triage.get("usage", {})
     lines.extend(
@@ -137,6 +140,27 @@ def _render_prioritized_findings(findings: list[dict]) -> list[str]:
             )
     else:
         lines.append("No findings were analyzed.")
+    return lines
+
+
+def _render_artifacts(normalized: dict, triage: dict) -> list[str]:
+    artifacts = triage.get("artifacts") or normalized.get("artifacts") or {}
+    lines = ["", "### Artifacts", ""]
+    if not artifacts:
+        lines.append("No artifact manifest was recorded.")
+        return lines
+
+    labels = {
+        "raw_trivy_json": "Raw Trivy JSON",
+        "normalized_findings_json": "Normalized findings JSON",
+        "triage_json": "Triage JSON",
+        "markdown_report": "Markdown report",
+        "job_summary_copy": "GitHub job summary copy",
+    }
+    lines.extend(["| Artifact | File |", "| --- | --- |"])
+    for key, label in labels.items():
+        if artifacts.get(key):
+            lines.append(f"| {label} | `{artifacts[key]}` |")
     return lines
 
 

@@ -47,11 +47,20 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     started_at = time.time()
     args.output_dir.mkdir(parents=True, exist_ok=True)
+    run_id = _artifact_timestamp()
 
-    raw_path = args.output_dir / "trivy-raw.json"
-    normalized_path = args.output_dir / "normalized-findings.json"
-    triage_path = args.output_dir / "triage.json"
-    report_path = args.output_dir / "vulnerability-report.md"
+    raw_path = args.output_dir / f"{run_id}-trivy-raw.json"
+    normalized_path = args.output_dir / f"{run_id}-normalized-findings.json"
+    triage_path = args.output_dir / f"{run_id}-triage.json"
+    report_path = args.output_dir / f"{run_id}-vulnerability-report.md"
+    summary_report_path = args.output_dir / "vulnerability-report.md"
+    artifact_paths = {
+        "raw_trivy_json": raw_path.name,
+        "normalized_findings_json": normalized_path.name,
+        "triage_json": triage_path.name,
+        "markdown_report": report_path.name,
+        "job_summary_copy": summary_report_path.name,
+    }
 
     if args.image:
         _log(f"Scanning image with Trivy: {args.image}")
@@ -74,6 +83,8 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     normalized["scan_source"] = scan_source
     normalized["generated_at"] = _utc_timestamp()
+    normalized["run_id"] = run_id
+    normalized["artifacts"] = artifact_paths
     _write_json(normalized_path, normalized)
     _log(
         "Prepared "
@@ -134,7 +145,9 @@ def main(argv: list[str] | None = None) -> int:
         "llm_runtime_seconds": round(time.time() - analyzer_started, 3),
         "total_runtime_seconds": round(time.time() - started_at, 3),
         "confidence_threshold": args.confidence_threshold,
+        "run_id": run_id,
     }
+    triage["artifacts"] = artifact_paths
     _write_json(triage_path, triage)
 
     _log("Rendering Markdown report")
@@ -144,11 +157,13 @@ def main(argv: list[str] | None = None) -> int:
         triage=triage,
     )
     report_path.write_text(markdown, encoding="utf-8")
+    summary_report_path.write_text(markdown, encoding="utf-8")
 
     print(f"Wrote raw Trivy JSON: {raw_path}")
     print(f"Wrote normalized JSON: {normalized_path}")
     print(f"Wrote triage JSON: {triage_path}")
     print(f"Wrote Markdown report: {report_path}")
+    print(f"Wrote Markdown report summary copy: {summary_report_path}")
     return 0
 
 
@@ -179,3 +194,7 @@ def _parse_severities(value: str) -> tuple[str, ...]:
 
 def _utc_timestamp() -> str:
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+
+
+def _artifact_timestamp() -> str:
+    return time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())

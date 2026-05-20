@@ -16,10 +16,11 @@ Input:
 
 Output:
 
-- `reports/trivy-raw.json`
-- `reports/normalized-findings.json`
-- `reports/triage.json`
-- `reports/vulnerability-report.md`
+- `reports/<timestamp>-trivy-raw.json`
+- `reports/<timestamp>-normalized-findings.json`
+- `reports/<timestamp>-triage.json`
+- `reports/<timestamp>-vulnerability-report.md`
+- `reports/vulnerability-report.md` as a stable copy for GitHub job summaries
 
 ## Quick start
 
@@ -105,7 +106,9 @@ raw findings, prompts, model output, or secrets.
 - `--input`: analyze an existing Trivy JSON report.
 - `--image`: scan a container image with Trivy, then analyze the result.
 - `--output-dir`: directory for `trivy-raw.json`, `normalized-findings.json`,
-  `triage.json`, and `vulnerability-report.md`.
+  `triage.json`, and `vulnerability-report.md` artifacts. Generated artifacts
+  are timestamped, with `vulnerability-report.md` also written as a stable copy
+  for GitHub job summaries.
 - `--model`: OpenRouter model name. Defaults to `z-ai/glm-4.5-air:free`.
 - `--include-severities`: comma-separated severities sent to the analyzer.
   Defaults to `CRITICAL,HIGH`.
