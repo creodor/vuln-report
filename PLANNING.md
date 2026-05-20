@@ -5,10 +5,10 @@
 - Considered compliance framework report generation.
   - Rejected for the assignment scope because reliable evidence mapping and framework-specific assertions would need more integrations and validation than a 2-4 hour demo should carry.
 - Considered general security posture analysis.
-  - Rejected for the MVP because useful posture analysis depends on cloud, source, identity, CI/CD, and policy context.
+  - Rejected for the MVP because useful posture analysis depends on cloud, source, identity, CI/CD, and policy context, and scope of project was likely to expand rapidly.
 - Considered SAST finding triage.
   - Deferred because findings vary heavily by scanner, language, rule pack, and local code context.
-- Chose Trivy CVE triage for container images.
+- Chose LLM-assisted Trivy CVE triage for container images.
   - The input is structured, common in CI, and directly maps to vulnerability response work: intake, prioritization, owner-ready reporting, and remediation tracking.
 
 ## Design decisions
