@@ -1,9 +1,11 @@
 import unittest
+import http.client
 
 from vuln_report.llm import (
     OpenRouterError,
     _extract_message_content,
     _estimate_cost_usd,
+    _format_transport_error,
     _format_openrouter_http_error,
     _MODEL_PRICING_CACHE,
     _parse_openrouter_response_body,
@@ -61,6 +63,12 @@ class LlmParsingTests(unittest.TestCase):
 
         self.assertIsNone(cost)
         self.assertEqual(note, "unavailable: model was not found")
+
+    def test_transport_error_formats_incomplete_read(self):
+        message = _format_transport_error(http.client.IncompleteRead(b"partial"))
+
+        self.assertIn("full body", message)
+        self.assertIn("7 partial bytes", message)
 
 
 if __name__ == "__main__":

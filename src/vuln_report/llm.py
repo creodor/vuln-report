@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import http.client
 import re
 import urllib.error
 import urllib.request
@@ -128,8 +129,8 @@ def _analyze_single_openrouter_chunk(
     except urllib.error.HTTPError as exc:
         body = exc.read().decode("utf-8", errors="replace")
         raise OpenRouterError(_format_openrouter_http_error(exc.code, body)) from exc
-    except (urllib.error.URLError, TimeoutError) as exc:
-        raise OpenRouterError(str(exc)) from exc
+    except (urllib.error.URLError, TimeoutError, http.client.IncompleteRead) as exc:
+        raise OpenRouterError(_format_transport_error(exc)) from exc
 
     try:
         choice = response_payload["choices"][0]
@@ -378,6 +379,17 @@ def _parse_openrouter_response_body(body: str) -> dict:
             "OpenRouter returned a non-JSON or truncated response body "
             f"at line {exc.lineno}, column {exc.colno}: {excerpt}"
         ) from exc
+
+
+def _format_transport_error(exc: Exception) -> str:
+    if isinstance(exc, http.client.IncompleteRead):
+        partial = getattr(exc, "partial", b"")
+        partial_len = len(partial) if partial else 0
+        return (
+            "OpenRouter response ended before the full body was received "
+            f"({partial_len} partial bytes read)."
+        )
+    return _sanitize_error_text(str(exc))
 
 
 def _format_openrouter_http_error(status_code: int, body: str) -> str:
