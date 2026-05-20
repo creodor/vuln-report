@@ -33,6 +33,10 @@ The Dockerfile copies the Trivy binary from the official `aquasec/trivy` image
 using a pinned `TRIVY_VERSION` build argument. This keeps local image scanning
 self-contained while avoiding a floating `latest` scanner dependency.
 
+In GitHub Actions, `TRIVY_VERSION` can be overridden with a repository variable
+named `TRIVY_VERSION`. If the variable is not set, the workflow builds with the
+Dockerfile default.
+
 Why this approach:
 
 - Trivy's official installation docs list the `aquasec/trivy` container image
