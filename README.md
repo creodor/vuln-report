@@ -1,11 +1,15 @@
 # vuln-report
 
 `vuln-report` turns Trivy container vulnerability output into a reviewer-ready
-Markdown triage report with structured JSON artifacts, confidence scoring, and
-human-review gates.
+Markdown triage report with LLM-assisted triage and fallback local heuristics,
+structured JSON artifacts, confidence scoring, and human-review gates.
 
 It is intentionally small: the goal is to reduce the repetitive work between
-scanner output and a remediation decision, not to replace security judgment.
+scanner output and a remediation decision, not to replace security judgment or
+build a full vulnerability management system.
+
+The LLM integration is intentionally limited to OpenRouter to keep the MVP
+scope focused. The tool can also run offline with deterministic local rules.
 
 ## What it builds
 
@@ -56,6 +60,16 @@ docker run --rm \
   -v "$(pwd)/fixtures:/input" \
   -v "$(pwd)/reports:/reports" \
   vuln-report --input /input/trivy-example.json --output-dir /reports
+```
+
+Use OpenRouter for LLM-assisted triage against a container image:
+
+```bash
+export OPENROUTER_API_KEY="..."
+docker run --rm \
+  -e OPENROUTER_API_KEY="$OPENROUTER_API_KEY" \
+  -v "$(pwd)/reports:/reports" \
+  vuln-report --image python:3.11.0-alpine --output-dir /reports
 ```
 
 ## GitHub Actions
