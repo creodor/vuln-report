@@ -48,9 +48,30 @@ class LlmMergeTests(unittest.TestCase):
     def test_chunked_analysis_combines_results_and_usage(self):
         normalized = {
             "findings": [
-                {"id": "CVE-1", "package": "a", "installed_version": "1"},
-                {"id": "CVE-2", "package": "b", "installed_version": "1"},
-                {"id": "CVE-3", "package": "c", "installed_version": "1"},
+                {
+                    "id": "CVE-1",
+                    "package": "a",
+                    "installed_version": "1",
+                    "fixed_version": "2",
+                    "severity": "CRITICAL",
+                    "human_review_required": True,
+                },
+                {
+                    "id": "CVE-2",
+                    "package": "b",
+                    "installed_version": "1",
+                    "fixed_version": "",
+                    "severity": "HIGH",
+                    "human_review_required": True,
+                },
+                {
+                    "id": "CVE-3",
+                    "package": "c",
+                    "installed_version": "1",
+                    "fixed_version": "2",
+                    "severity": "HIGH",
+                    "human_review_required": False,
+                },
             ],
             "metrics": {"findings_sent_to_analyzer": 3},
         }
@@ -87,6 +108,9 @@ class LlmMergeTests(unittest.TestCase):
             result["usage"]["estimated_cost_note"],
             "estimated from OpenRouter model pricing",
         )
+        self.assertIn("1 critical", result["summary"])
+        self.assertIn("2 high", result["summary"])
+        self.assertIn("CVE-2", result["summary"])
 
 
 if __name__ == "__main__":

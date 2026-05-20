@@ -89,7 +89,7 @@ def _analyze_with_openrouter_chunks(
         combined["warnings"].extend(result.get("warnings", []))
         _add_usage(combined["usage"], result.get("usage", {}))
 
-    combined["summary"] = f"Analyzed {len(combined['findings'])} findings across {len(chunks)} OpenRouter calls."
+    combined["summary"] = _summarize_combined_findings(combined["findings"], len(chunks))
     combined["warnings"] = list(dict.fromkeys(combined["warnings"]))
     if summaries:
         combined["warnings"].append("Chunk summaries: " + " | ".join(summaries))
@@ -247,6 +247,54 @@ def _usage(response_payload: dict, model: str) -> dict:
         "estimated_cost_usd": estimated_cost,
         "estimated_cost_note": note,
     }
+
+
+def _summarize_combined_findings(findings: list[dict], chunk_count: int) -> str:
+    severity_counts = {}
+    no_fix = []
+    human_review_count = 0
+    for finding in findings:
+        severity = finding.get("severity") or "UNKNOWN"
+        severity_counts[severity] = severity_counts.get(severity, 0) + 1
+        if not finding.get("fixed_version"):
+            no_fix.append(finding)
+        if finding.get("human_review_required"):
+            human_review_count += 1
+
+    severity_parts = [
+        f"{count} {severity.lower()}"
+        for severity, count in sorted(
+            severity_counts.items(),
+            key=lambda item: _severity_rank(item[0]),
+            reverse=True,
+        )
+    ]
+    summary = (
+        f"Analyzed {len(findings)} findings across {chunk_count} OpenRouter calls"
+        f" ({', '.join(severity_parts)}). "
+    )
+    if no_fix:
+        examples = ", ".join(
+            finding.get("id") or f"{finding.get('package')} ({finding.get('severity')})"
+            for finding in no_fix[:5]
+        )
+        remainder = len(no_fix) - 5
+        suffix = f", and {remainder} more" if remainder > 0 else ""
+        summary += f"{len(no_fix)} findings did not report an available fix: {examples}{suffix}. "
+    else:
+        summary += "All analyzed findings reported an available fix. "
+    summary += f"{human_review_count} findings require human review based on severity, confidence, missing fixes, or model/fallback guardrails."
+    return summary
+
+
+def _severity_rank(severity: str) -> int:
+    return {
+        "CRITICAL": 5,
+        "HIGH": 4,
+        "MEDIUM": 3,
+        "LOW": 2,
+        "UNKNOWN": 1,
+    }.get(severity, 0)
 
 
 def _add_usage(total: dict, usage: dict) -> None:
