@@ -28,7 +28,6 @@ def analyze_with_openrouter(
             {"role": "user", "content": _user_prompt(normalized, confidence_threshold)},
         ],
         "temperature": 0.1,
-        "response_format": {"type": "json_object"},
     }
     request = urllib.request.Request(
         "https://openrouter.ai/api/v1/chat/completions",
@@ -52,10 +51,16 @@ def analyze_with_openrouter(
         raise OpenRouterError(str(exc)) from exc
 
     try:
-        content = response_payload["choices"][0]["message"]["content"]
+        choice = response_payload["choices"][0]
+        message = choice.get("message") or {}
+    except (KeyError, IndexError, TypeError) as exc:
+        raise OpenRouterError(f"OpenRouter response did not include a chat message: {exc}") from exc
+
+    content = _extract_message_content(message, choice)
+    try:
         triage = json.loads(_strip_code_fences(content))
-    except (KeyError, IndexError, json.JSONDecodeError) as exc:
-        raise OpenRouterError(f"Could not parse model response: {exc}") from exc
+    except json.JSONDecodeError as exc:
+        raise OpenRouterError(f"Could not parse model response as JSON: {exc}") from exc
 
     triage.setdefault("warnings", [])
     triage.setdefault("findings", [])
@@ -97,8 +102,33 @@ def _user_prompt(normalized: dict, confidence_threshold: float) -> str:
     )
 
 
+def _extract_message_content(message: dict, choice: dict) -> str:
+    content = message.get("content")
+    if isinstance(content, str) and content.strip():
+        return content
+    if isinstance(content, list):
+        parts = []
+        for item in content:
+            if isinstance(item, dict) and isinstance(item.get("text"), str):
+                parts.append(item["text"])
+            elif isinstance(item, str):
+                parts.append(item)
+        joined = "\n".join(part for part in parts if part.strip()).strip()
+        if joined:
+            return joined
+
+    finish_reason = choice.get("finish_reason")
+    message_keys = ", ".join(sorted(message.keys())) or "none"
+    raise OpenRouterError(
+        "Model response did not include text content "
+        f"(finish_reason={finish_reason}, message_keys={message_keys})."
+    )
+
+
 def _strip_code_fences(value: str) -> str:
     value = value.strip()
+    if not value:
+        raise OpenRouterError("Model response content was empty.")
     if value.startswith("```"):
         lines = value.splitlines()
         if lines:
@@ -130,4 +160,3 @@ def _apply_required_guardrails(triage: dict, confidence_threshold: float) -> Non
             finding["human_review_required"] = True
             if not finding.get("human_review_reason"):
                 finding["human_review_reason"] = "Critical severity findings require human confirmation before closure."
-
