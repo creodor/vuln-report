@@ -142,6 +142,11 @@ analyzer. The final triage JSON and Markdown report include exactly one entry fo
 each finding sent to the analyzer. If the model omits a finding, the script adds
 a low-confidence human-review fallback entry instead of silently dropping it.
 
+The Markdown report also groups findings that share the same package/fixed
+version or remediation action. This keeps the human-facing report focused on
+work to be done while preserving per-CVE traceability in the detailed findings
+and `triage.json`.
+
 ## Why this problem
 
 Vulnerability scanners are easy to run and hard to operationalize. A solo

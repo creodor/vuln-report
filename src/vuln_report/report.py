@@ -81,6 +81,8 @@ def render_markdown_report(title: str, normalized: dict, triage: dict) -> str:
     else:
         lines.append("No findings crossed the configured human-review gates.")
 
+    lines.extend(_render_remediation_groups(findings))
+
     lines.extend(
         [
             "",
@@ -141,6 +143,87 @@ def _link_cve(cve_id: str | None) -> str:
     if cve_id.startswith("CVE-"):
         return f"[{cve_id}](https://www.cve.org/CVERecord?id={cve_id})"
     return cve_id
+
+
+def _render_remediation_groups(findings: list[dict]) -> list[str]:
+    lines = ["", "## Recommended remediation groups", ""]
+    groups = _remediation_groups(findings)
+    if not groups:
+        lines.append("No remediation groups were generated.")
+        return lines
+
+    lines.extend(
+        [
+            "| Remediation | Package | Findings | Highest severity | Human review | Affected CVEs |",
+            "| --- | --- | ---: | --- | --- | --- |",
+        ]
+    )
+    for group in groups:
+        cves = ", ".join(_link_cve(finding.get("id")) for finding in group["findings"])
+        review_required = any(finding.get("human_review_required") for finding in group["findings"])
+        lines.append(
+            "| {action} | `{package}` | {count} | {severity} | {review} | {cves} |".format(
+                action=_escape(group["action"]),
+                package=_escape(group["package"]),
+                count=len(group["findings"]),
+                severity=group["highest_severity"],
+                review="yes" if review_required else "no",
+                cves=_escape(cves),
+            )
+        )
+    return lines
+
+
+def _remediation_groups(findings: list[dict]) -> list[dict]:
+    groups = {}
+    for finding in findings:
+        key = _remediation_key(finding)
+        if key not in groups:
+            groups[key] = {
+                "package": finding.get("package") or "unknown",
+                "action": finding.get("recommended_action") or "Review finding manually.",
+                "findings": [],
+            }
+        groups[key]["findings"].append(finding)
+
+    grouped = []
+    for group in groups.values():
+        group["findings"].sort(key=lambda item: item.get("id") or "")
+        group["highest_severity"] = _highest_severity(group["findings"])
+        grouped.append(group)
+
+    grouped.sort(
+        key=lambda group: (
+            _severity_rank(group["highest_severity"]),
+            len(group["findings"]),
+            group["package"],
+        ),
+        reverse=True,
+    )
+    return grouped
+
+
+def _remediation_key(finding: dict) -> tuple[str, str, str]:
+    package = finding.get("package") or "unknown"
+    fixed_version = finding.get("fixed_version") or ""
+    action = finding.get("recommended_action") or "Review finding manually."
+    if action:
+        return (package, "", action)
+    return (package, fixed_version, "")
+
+
+def _highest_severity(findings: list[dict]) -> str:
+    return max((finding.get("severity") or "UNKNOWN" for finding in findings), key=_severity_rank)
+
+
+def _severity_rank(severity: str) -> int:
+    return {
+        "CRITICAL": 5,
+        "HIGH": 4,
+        "MEDIUM": 3,
+        "LOW": 2,
+        "UNKNOWN": 1,
+    }.get(severity, 0)
 
 
 def _escape(value: str) -> str:
