@@ -29,25 +29,6 @@ Build the reporter image:
 docker build -t vuln-report .
 ```
 
-The Dockerfile copies the Trivy binary from the official `aquasec/trivy` image
-using a pinned `TRIVY_VERSION` build argument. This keeps local image scanning
-self-contained while avoiding a floating `latest` scanner dependency.
-
-In GitHub Actions, `TRIVY_VERSION` can be overridden with a repository variable
-named `TRIVY_VERSION`. If the variable is not set, the workflow builds with the
-Dockerfile default.
-
-Why this approach:
-
-- Trivy's official installation docs list the `aquasec/trivy` container image
-  and GitHub release binary as official installation methods.
-- A multi-stage copy keeps the reporter image self-contained without piping an
-  install script into a shell during the build.
-- The version is pinned for reproducibility; a production hardening pass would
-  pin the source image by digest or download and verify the release checksum.
-- Docker Compose is intentionally not used because the reporter and scanner are
-  short-lived CLI tools, not cooperating long-running services.
-
 Run against the included sample fixture:
 
 ```bash
@@ -180,6 +161,26 @@ OpenRouter token usage is recorded when the provider returns it. Estimated cost
 is calculated from OpenRouter's `/models` pricing endpoint and cached for the
 duration of the run. If pricing cannot be retrieved, the report shows an explicit
 unavailable reason instead of implying that the run was free.
+
+## Dockerfile Trivy Inclusion
+The Dockerfile copies the Trivy binary from the official `aquasec/trivy` image
+using a pinned `TRIVY_VERSION` build argument. This keeps local image scanning
+self-contained while avoiding a floating `latest` scanner dependency.
+
+In GitHub Actions, `TRIVY_VERSION` can be overridden with a repository variable
+named `TRIVY_VERSION`. If the variable is not set, the workflow builds with the
+Dockerfile default.
+
+Why this approach:
+
+- Trivy's official installation docs list the `aquasec/trivy` container image
+  and GitHub release binary as official installation methods.
+- A multi-stage copy keeps the reporter image self-contained without piping an
+  install script into a shell during the build.
+- The version is pinned for reproducibility; a production hardening pass would
+  pin the source image by digest or download and verify the release checksum.
+- Docker Compose is intentionally not used because the reporter and scanner are
+  short-lived CLI tools, not cooperating long-running services.
 
 ## Why this problem
 
