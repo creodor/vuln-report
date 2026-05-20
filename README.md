@@ -23,24 +23,53 @@ Output:
 
 ## Quick start
 
+Build the reporter image:
+
+```powershell
+docker build -t vuln-report .
+```
+
+The Dockerfile copies the Trivy binary from the official `aquasec/trivy` image
+using a pinned `TRIVY_VERSION` build argument. This keeps local image scanning
+self-contained while avoiding a floating `latest` scanner dependency.
+
+Why this approach:
+
+- Trivy's official installation docs list the `aquasec/trivy` container image
+  and GitHub release binary as official installation methods.
+- A multi-stage copy keeps the reporter image self-contained without piping an
+  install script into a shell during the build.
+- The version is pinned for reproducibility; a production hardening pass would
+  pin the source image by digest or download and verify the release checksum.
+- Docker Compose is intentionally not used because the reporter and scanner are
+  short-lived CLI tools, not cooperating long-running services.
+
 Run against the included sample fixture:
 
 ```powershell
-python -m pip install -e .
-vuln-report --input fixtures/trivy-example.json --offline
+docker run --rm `
+  -v ${PWD}/fixtures:/input `
+  -v ${PWD}/reports:/reports `
+  vuln-report --input /input/trivy-example.json --output-dir /reports --offline
 ```
 
-Run against a container image with Trivy via Docker:
+Run against a container image:
 
 ```powershell
-vuln-report --image python:3.9.0-slim-buster --offline
+docker run --rm `
+  -v ${PWD}/reports:/reports `
+  vuln-report --image python:3.9.0-slim-buster --output-dir /reports --offline
 ```
 
 Use OpenRouter for LLM-assisted triage:
 
 ```powershell
 $env:OPENROUTER_API_KEY="..."
-vuln-report --input fixtures/trivy-example.json --model openrouter/free
+docker run --rm `
+  -e OPENROUTER_API_KEY=$env:OPENROUTER_API_KEY `
+  -v ${PWD}/fixtures:/input `
+  -v ${PWD}/reports:/reports `
+  vuln-report --input /input/trivy-example.json --output-dir /reports --model openrouter/free
 ```
 
 ## GitHub Actions
@@ -49,6 +78,8 @@ The workflow in `.github/workflows/vulnerability-report.yml` supports:
 
 - Manual runs with a target image input
 - Push runs against a default demo image
+- Docker image build from this repo's `Dockerfile`
+- Tests run inside the built container
 - Artifact upload for all generated reports
 - Optional OpenRouter use through the `OPENROUTER_API_KEY` repository secret
 - Default model set to `openrouter/free` for zero-cost demo runs
@@ -58,11 +89,10 @@ demo cost control.
 
 ## Tests
 
-The tests use Python's standard library:
+The tests run inside the Docker image:
 
 ```powershell
-$env:PYTHONPATH="src"
-python -m unittest discover -s tests
+docker run --rm --entrypoint python vuln-report -m unittest discover -s tests
 ```
 
 ## AI guardrails
