@@ -44,7 +44,7 @@ Run against a container image:
 ```bash
 docker run --rm \
   -v "$(pwd)/reports:/reports" \
-  vuln-report --image python:3.9.0-slim-buster --output-dir /reports --offline
+  vuln-report --image python:3.11.0-alpine --output-dir /reports --offline
 ```
 
 Use OpenRouter for LLM-assisted triage:
@@ -83,11 +83,15 @@ Optional repository variable:
 
 Manual workflow inputs:
 
-- `image`: container image to scan. Defaults to `python:3.9.0-slim-buster`.
+- `image`: container image to scan. Defaults to `python:3.11.0-alpine`.
 - `model`: OpenRouter model. Defaults to `z-ai/glm-4.5-air:free`.
 - `include_severities`: comma-separated severities sent to analysis. Defaults
   to `CRITICAL,HIGH`.
 - `llm_chunk_size`: maximum findings per OpenRouter call. Defaults to `25`.
+
+The default image is intentionally vulnerable enough to exercise the report
+workflow without turning every demo run into a very large vulnerability queue.
+For a noisier stress test, use `python:3.9.0-slim-buster`.
 
 The scheduled trigger is included as a commented example but is disabled for
 demo cost control.
