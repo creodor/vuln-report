@@ -47,7 +47,7 @@ def analyze_with_openrouter(
 
     try:
         with urllib.request.urlopen(request, timeout=90) as response:
-            response_payload = json.loads(response.read().decode("utf-8"))
+            response_payload = _parse_openrouter_response_body(response.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
         body = exc.read().decode("utf-8", errors="replace")
         raise OpenRouterError(_format_openrouter_http_error(exc.code, body)) from exc
@@ -166,6 +166,17 @@ def _usage(response_payload: dict) -> dict:
         "total_tokens": usage.get("total_tokens"),
         "estimated_cost_usd": None,
     }
+
+
+def _parse_openrouter_response_body(body: str) -> dict:
+    try:
+        return json.loads(body)
+    except json.JSONDecodeError as exc:
+        excerpt = _sanitize_error_text(body)
+        raise OpenRouterError(
+            "OpenRouter returned a non-JSON or truncated response body "
+            f"at line {exc.lineno}, column {exc.colno}: {excerpt}"
+        ) from exc
 
 
 def _format_openrouter_http_error(status_code: int, body: str) -> str:

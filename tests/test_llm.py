@@ -4,6 +4,7 @@ from vuln_report.llm import (
     OpenRouterError,
     _extract_message_content,
     _format_openrouter_http_error,
+    _parse_openrouter_response_body,
     _strip_code_fences,
 )
 
@@ -40,6 +41,10 @@ class LlmParsingTests(unittest.TestCase):
         )
 
         self.assertIn("quota-limited or throttled", message)
+
+    def test_parse_response_body_rejects_invalid_json(self):
+        with self.assertRaisesRegex(OpenRouterError, "non-JSON or truncated"):
+            _parse_openrouter_response_body('{"choices": [')
 
 
 if __name__ == "__main__":
