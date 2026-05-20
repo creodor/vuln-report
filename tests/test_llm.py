@@ -46,6 +46,15 @@ class LlmParsingTests(unittest.TestCase):
 
         self.assertIn("quota-limited or throttled", message)
 
+    def test_http_error_formatter_identifies_auth_failure(self):
+        message = _format_openrouter_http_error(
+            401,
+            '{"error": {"message": "No auth credentials found"}}',
+        )
+
+        self.assertIn("authentication failed", message)
+        self.assertIn("OpenRouter", message)
+
     def test_parse_response_body_rejects_invalid_json(self):
         with self.assertRaisesRegex(OpenRouterError, "non-JSON or truncated"):
             _parse_openrouter_response_body('{"choices": [')
