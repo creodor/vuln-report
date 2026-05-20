@@ -86,10 +86,35 @@ def render_markdown_report(title: str, normalized: dict, triage: dict) -> str:
     lines.extend(
         [
             "",
-            "## Prioritized findings",
+            "## Top affected packages",
+            "",
+            "| Package | Analyzed findings |",
+            "| --- | ---: |",
+        ]
+    )
+    for package, count in package_counts.most_common(10):
+        lines.append(f"| `{package}` | {count} |")
+
+    lines.extend(_render_prioritized_findings(findings))
+
+    warnings = triage.get("warnings", [])
+    lines.extend(["", "## Caveats and validation notes", ""])
+    if warnings:
+        for warning in warnings:
+            lines.append(f"- {warning}")
+    lines.extend(
+        [
+            "- Scanner severity is not the same as product risk; validate package reachability, runtime exposure, and compensating controls.",
+            "- This tool does not perform automatic remediation or suppress findings.",
+            "- Critical findings and low-confidence analysis are intentionally routed to human review.",
             "",
         ]
     )
+    return "\n".join(lines)
+
+
+def _render_prioritized_findings(findings: list[dict]) -> list[str]:
+    lines = ["", "## Prioritized findings", ""]
 
     if findings:
         for index, finding in enumerate(findings, start=1):
@@ -109,32 +134,7 @@ def render_markdown_report(title: str, normalized: dict, triage: dict) -> str:
             )
     else:
         lines.append("No findings were analyzed.")
-
-    lines.extend(
-        [
-            "## Top affected packages",
-            "",
-            "| Package | Analyzed findings |",
-            "| --- | ---: |",
-        ]
-    )
-    for package, count in package_counts.most_common(10):
-        lines.append(f"| `{package}` | {count} |")
-
-    warnings = triage.get("warnings", [])
-    lines.extend(["", "## Caveats and validation notes", ""])
-    if warnings:
-        for warning in warnings:
-            lines.append(f"- {warning}")
-    lines.extend(
-        [
-            "- Scanner severity is not the same as product risk; validate package reachability, runtime exposure, and compensating controls.",
-            "- This tool does not perform automatic remediation or suppress findings.",
-            "- Critical findings and low-confidence analysis are intentionally routed to human review.",
-            "",
-        ]
-    )
-    return "\n".join(lines)
+    return lines
 
 
 def _link_cve(cve_id: str | None) -> str:
