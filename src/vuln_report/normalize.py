@@ -9,7 +9,7 @@ SEVERITY_RANK = {
 }
 
 
-def normalize_trivy_report(report: dict, max_findings: int = 30) -> dict:
+def normalize_trivy_report(report: dict, max_findings: int = 75) -> dict:
     findings = []
     severity_counts = {severity: 0 for severity in SEVERITY_RANK}
     fix_available = 0
@@ -75,4 +75,3 @@ def _trim(value: str, limit: int) -> str:
     if len(value) <= limit:
         return value
     return value[: limit - 3].rstrip() + "..."
-

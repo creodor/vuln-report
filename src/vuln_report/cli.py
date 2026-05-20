@@ -15,7 +15,8 @@ from vuln_report.triage import analyze_with_local_rules
 from vuln_report.trivy import run_trivy_image_scan
 
 
-DEFAULT_MODEL = "openrouter/free"
+DEFAULT_MODEL = "z-ai/glm-4.5-air:free"
+DEFAULT_MAX_FINDINGS = 75
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -29,7 +30,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     parser.add_argument("--output-dir", type=Path, default=Path("reports"))
     parser.add_argument("--model", default=os.getenv("OPENROUTER_MODEL", DEFAULT_MODEL))
-    parser.add_argument("--max-findings", type=int, default=30)
+    parser.add_argument("--max-findings", type=int, default=DEFAULT_MAX_FINDINGS)
     parser.add_argument("--confidence-threshold", type=float, default=0.70)
     parser.add_argument("--require-llm", action="store_true", help="Fail instead of using local fallback.")
     parser.add_argument("--offline", action="store_true", help="Skip LLM calls and use deterministic local rules.")

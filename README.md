@@ -69,7 +69,7 @@ docker run --rm \
   -e OPENROUTER_API_KEY="$OPENROUTER_API_KEY" \
   -v "$(pwd)/fixtures:/input" \
   -v "$(pwd)/reports:/reports" \
-  vuln-report --input /input/trivy-example.json --output-dir /reports --model openrouter/free
+  vuln-report --input /input/trivy-example.json --output-dir /reports
 ```
 
 ## GitHub Actions
@@ -82,7 +82,7 @@ The workflow in `.github/workflows/vulnerability-report.yml` supports:
 - Tests run inside the built container
 - Artifact upload for all generated reports
 - Optional OpenRouter use through the `OPENROUTER_API_KEY` repository secret
-- Default model set to `openrouter/free` for zero-cost demo runs
+- Default model set to `z-ai/glm-4.5-air:free` for zero-cost demo runs
 
 The scheduled trigger is included as a commented example but is disabled for
 demo cost control.
@@ -102,8 +102,9 @@ raw findings, prompts, model output, or secrets.
 - `--image`: scan a container image with Trivy, then analyze the result.
 - `--output-dir`: directory for `trivy-raw.json`, `normalized-findings.json`,
   `triage.json`, and `vulnerability-report.md`.
-- `--model`: OpenRouter model name. Defaults to `openrouter/free`.
-- `--max-findings`: maximum number of findings sent to the analyzer.
+- `--model`: OpenRouter model name. Defaults to `z-ai/glm-4.5-air:free`.
+- `--max-findings`: maximum number of findings sent to the analyzer. Defaults
+  to `75`.
 - `--confidence-threshold`: confidence value below which human review is
   required. Defaults to `0.70`.
 - `--offline`: skip OpenRouter and use deterministic local rules.
