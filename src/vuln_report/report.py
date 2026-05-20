@@ -60,7 +60,7 @@ def render_markdown_report(title: str, normalized: dict, triage: dict) -> str:
             f"- Prompt tokens: `{usage.get('prompt_tokens')}`",
             f"- Completion tokens: `{usage.get('completion_tokens')}`",
             f"- Total tokens: `{usage.get('total_tokens')}`",
-            f"- Estimated cost USD: `{usage.get('estimated_cost_usd')}`",
+            f"- Estimated cost USD: `{_format_estimated_cost(usage)}`",
             "",
             "## Human review queue",
             "",
@@ -225,6 +225,16 @@ def _severity_rank(severity: str) -> int:
         "LOW": 2,
         "UNKNOWN": 1,
     }.get(severity, 0)
+
+
+def _format_estimated_cost(usage: dict) -> str:
+    cost = usage.get("estimated_cost_usd")
+    note = usage.get("estimated_cost_note")
+    if cost is None:
+        return note or "unavailable: pricing was not calculated"
+    if note:
+        return f"{cost:.6f} ({note})"
+    return f"{cost:.6f}"
 
 
 def _escape(value: str) -> str:

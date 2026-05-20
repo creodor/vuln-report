@@ -18,8 +18,85 @@ Confidence means confidence in your generated triage recommendation for a findin
 including the risk summary, exploitability notes, and recommended action, based only
 on the supplied normalized Trivy data."""
 
+_MODEL_PRICING_CACHE: dict[str, tuple[float, float] | str] = {}
+
 
 def analyze_with_openrouter(
+    normalized: dict,
+    api_key: str,
+    model: str,
+    confidence_threshold: float,
+    chunk_size: int = 25,
+) -> dict:
+    if len(normalized.get("findings", [])) > chunk_size:
+        return _analyze_with_openrouter_chunks(
+            normalized,
+            api_key=api_key,
+            model=model,
+            confidence_threshold=confidence_threshold,
+            chunk_size=chunk_size,
+        )
+
+    return _analyze_single_openrouter_chunk(
+        normalized,
+        api_key=api_key,
+        model=model,
+        confidence_threshold=confidence_threshold,
+    )
+
+
+def _analyze_with_openrouter_chunks(
+    normalized: dict,
+    api_key: str,
+    model: str,
+    confidence_threshold: float,
+    chunk_size: int,
+) -> dict:
+    chunks = []
+    findings = normalized.get("findings", [])
+    for start in range(0, len(findings), chunk_size):
+        chunk = dict(normalized)
+        chunk["findings"] = findings[start : start + chunk_size]
+        chunk["metrics"] = dict(normalized.get("metrics", {}))
+        chunk["metrics"]["findings_sent_to_analyzer"] = len(chunk["findings"])
+        chunks.append(chunk)
+
+    combined = {
+        "summary": "",
+        "findings": [],
+        "warnings": [
+            f"OpenRouter analysis was split into {len(chunks)} chunks of up to {chunk_size} findings."
+        ],
+        "usage": {
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "total_tokens": 0,
+            "estimated_cost_usd": 0.0,
+            "estimated_cost_note": "estimated from OpenRouter model pricing",
+        },
+    }
+
+    summaries = []
+    for index, chunk in enumerate(chunks, start=1):
+        result = _analyze_single_openrouter_chunk(
+            chunk,
+            api_key=api_key,
+            model=model,
+            confidence_threshold=confidence_threshold,
+        )
+        summaries.append(f"Chunk {index}: {result.get('summary', 'No summary provided.')}")
+        combined["findings"].extend(result.get("findings", []))
+        combined["warnings"].extend(result.get("warnings", []))
+        _add_usage(combined["usage"], result.get("usage", {}))
+
+    combined["summary"] = f"Analyzed {len(combined['findings'])} findings across {len(chunks)} OpenRouter calls."
+    combined["warnings"] = list(dict.fromkeys(combined["warnings"]))
+    if summaries:
+        combined["warnings"].append("Chunk summaries: " + " | ".join(summaries))
+    return combined
+
+
+def _analyze_single_openrouter_chunk(
     normalized: dict,
     api_key: str,
     model: str,
@@ -72,7 +149,7 @@ def analyze_with_openrouter(
     triage["findings"] = _merge_model_findings(normalized, triage["findings"])
     if any(finding.get("human_review_reason") == "Model omitted this finding from its structured response." for finding in triage["findings"]):
         triage["warnings"].append("One or more findings were omitted by the model and replaced with low-confidence human-review fallback entries.")
-    triage["usage"] = _usage(response_payload)
+    triage["usage"] = _usage(response_payload, model)
     _apply_required_guardrails(triage, confidence_threshold)
     return triage
 
@@ -158,14 +235,90 @@ def _strip_code_fences(value: str) -> str:
     return value
 
 
-def _usage(response_payload: dict) -> dict:
+def _usage(response_payload: dict, model: str) -> dict:
     usage = response_payload.get("usage") or {}
+    prompt_tokens = usage.get("prompt_tokens")
+    completion_tokens = usage.get("completion_tokens")
+    estimated_cost, note = _estimate_cost_usd(model, prompt_tokens, completion_tokens)
     return {
-        "prompt_tokens": usage.get("prompt_tokens"),
-        "completion_tokens": usage.get("completion_tokens"),
+        "prompt_tokens": prompt_tokens,
+        "completion_tokens": completion_tokens,
         "total_tokens": usage.get("total_tokens"),
-        "estimated_cost_usd": None,
+        "estimated_cost_usd": estimated_cost,
+        "estimated_cost_note": note,
     }
+
+
+def _add_usage(total: dict, usage: dict) -> None:
+    for key in ("prompt_tokens", "completion_tokens", "total_tokens"):
+        if usage.get(key) is None:
+            total[key] = None
+        elif total.get(key) is not None:
+            total[key] += usage[key]
+    if total.get("estimated_cost_usd") is not None:
+        if usage.get("estimated_cost_usd") is None:
+            total["estimated_cost_usd"] = None
+            total["estimated_cost_note"] = usage.get("estimated_cost_note") or "pricing unavailable"
+        else:
+            total["estimated_cost_usd"] += usage["estimated_cost_usd"]
+            total["estimated_cost_usd"] = round(total["estimated_cost_usd"], 6)
+            total["estimated_cost_note"] = "estimated from OpenRouter model pricing"
+
+
+def _estimate_cost_usd(
+    model: str,
+    prompt_tokens: int | None,
+    completion_tokens: int | None,
+) -> tuple[float | None, str]:
+    if prompt_tokens is None or completion_tokens is None:
+        return None, "unavailable: token usage was not returned"
+    pricing = _get_model_pricing(model)
+    if isinstance(pricing, str):
+        return None, pricing
+    input_per_token, output_per_token = pricing
+    cost = (prompt_tokens * input_per_token) + (completion_tokens * output_per_token)
+    return round(cost, 6), "estimated from OpenRouter model pricing"
+
+
+def _get_model_pricing(model: str) -> tuple[float, float] | str:
+    if model in _MODEL_PRICING_CACHE:
+        return _MODEL_PRICING_CACHE[model]
+
+    try:
+        request = urllib.request.Request(
+            "https://openrouter.ai/api/v1/models",
+            headers={
+                "Content-Type": "application/json",
+                "HTTP-Referer": "https://github.com/creodor/vuln-report",
+                "X-Title": "vuln-report",
+            },
+            method="GET",
+        )
+        with urllib.request.urlopen(request, timeout=20) as response:
+            payload = _parse_openrouter_response_body(response.read().decode("utf-8"))
+    except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, OpenRouterError) as exc:
+        result = f"unavailable: OpenRouter models endpoint failed ({_sanitize_error_text(str(exc))})"
+        _MODEL_PRICING_CACHE[model] = result
+        return result
+
+    for item in payload.get("data", []):
+        if item.get("id") != model:
+            continue
+        pricing = item.get("pricing") or {}
+        try:
+            prompt = float(pricing["prompt"])
+            completion = float(pricing["completion"])
+        except (KeyError, TypeError, ValueError):
+            result = "unavailable: model pricing did not include prompt/completion rates"
+            _MODEL_PRICING_CACHE[model] = result
+            return result
+        result = (prompt, completion)
+        _MODEL_PRICING_CACHE[model] = result
+        return result
+
+    result = f"unavailable: model {model} was not found in OpenRouter models endpoint"
+    _MODEL_PRICING_CACHE[model] = result
+    return result
 
 
 def _parse_openrouter_response_body(body: str) -> dict:

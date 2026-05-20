@@ -111,6 +111,7 @@ raw findings, prompts, model output, or secrets.
   Defaults to `CRITICAL,HIGH`.
 - `--confidence-threshold`: confidence value below which human review is
   required. Defaults to `0.70`.
+- `--llm-chunk-size`: maximum findings per OpenRouter call. Defaults to `25`.
 - `--offline`: skip OpenRouter and use deterministic local rules.
 - `--require-llm`: fail if OpenRouter is unavailable or returns unusable output.
 
@@ -151,6 +152,10 @@ The Markdown report also groups findings that share the same package/fixed
 version or remediation action. This keeps the human-facing report focused on
 work to be done while preserving per-CVE traceability in the detailed findings
 and `triage.json`.
+
+When more findings are selected than `--llm-chunk-size`, the tool splits
+OpenRouter analysis into multiple calls. This reduces the chance that a model
+truncates or omits findings in a very large structured response.
 
 ## Why this problem
 

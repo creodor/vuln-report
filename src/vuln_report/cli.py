@@ -36,6 +36,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Comma-separated severities to analyze. Defaults to CRITICAL,HIGH.",
     )
     parser.add_argument("--confidence-threshold", type=float, default=0.70)
+    parser.add_argument("--llm-chunk-size", type=int, default=25)
     parser.add_argument("--require-llm", action="store_true", help="Fail instead of using local fallback.")
     parser.add_argument("--offline", action="store_true", help="Skip LLM calls and use deterministic local rules.")
     parser.add_argument("--report-title", default="Vulnerability Triage Report")
@@ -98,6 +99,7 @@ def main(argv: list[str] | None = None) -> int:
                 api_key=api_key,
                 model=args.model,
                 confidence_threshold=args.confidence_threshold,
+                chunk_size=args.llm_chunk_size,
             )
             analyzer = f"openrouter:{args.model}"
         except OpenRouterError as exc:
